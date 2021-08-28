@@ -93,8 +93,8 @@ $container->set('helper', function ($c) {
             foreach($sql as $s) {
                 $db->query($s);
             }
+	        $db->query('update comments set comments.account_name = users.account_name from comments inner join users on comments.user_id = users.id');
         }
-
         public function fetch_first($query, ...$params) {
             $db = $this->db();
             $ps = $db->prepare($query);
@@ -113,6 +113,9 @@ $container->set('helper', function ($c) {
             } else {
                 return null;
             }
+        }
+        public function is_set_user_id() {
+            return isset($_SESSION['user'], $_SESSION['user']['id']);
         }
 
         public function get_session_user() {
@@ -139,7 +142,8 @@ $container->set('helper', function ($c) {
                 $ps->execute([$post['id']]);
                 $comments = $ps->fetchAll(PDO::FETCH_ASSOC);
                 foreach ($comments as &$comment) {
-                    $comment['user'] = $this->fetch_first('SELECT * FROM `users` WHERE `id` = ?', $comment['user_id']);
+                    $comment['user']['account_name'] = $comment['account_name'];
+                    //$comment['user'] = $this->fetch_first('SELECT account_name FROM `users` WHERE `id` = ?', $comment['user_id']);
                 }
                 unset($comment);
                 $post['comments'] = array_reverse($comments);
@@ -205,15 +209,13 @@ function calculate_passhash($account_name, $password) {
     return digest("{$password}:{$salt}");
 }
 
-// --------
-
 $app->get('/initialize', function (Request $request, Response $response) {
     $this->get('helper')->db_initialize();
     return $response;
 });
 
 $app->get('/login', function (Request $request, Response $response) {
-    if ($this->get('helper')->get_session_user() !== null) {
+    if ($this->get('helper')->is_set_user_id()) {
         return redirect($response, '/', 302);
     }
     return $this->get('view')->render($response, 'login.php', [
@@ -223,7 +225,7 @@ $app->get('/login', function (Request $request, Response $response) {
 });
 
 $app->post('/login', function (Request $request, Response $response) {
-    if ($this->get('helper')->get_session_user() !== null) {
+    if ($this->get('helper')->is_set_user_id()) {
         return redirect($response, '/', 302);
     }
 
@@ -243,7 +245,7 @@ $app->post('/login', function (Request $request, Response $response) {
 });
 
 $app->get('/register', function (Request $request, Response $response) {
-    if ($this->get('helper')->get_session_user() !== null) {
+    if ($this->get('helper')->is_set_user_id()) {
         return redirect($response, '/', 302);
     }
     return $this->get('view')->render($response, 'register.php', [
@@ -254,7 +256,7 @@ $app->get('/register', function (Request $request, Response $response) {
 
 
 $app->post('/register', function (Request $request, Response $response) {
-    if ($this->get('helper')->get_session_user()) {
+    if ($this->get('helper')->is_set_user_id()) {
         return redirect($response, '/', 302);
     }
 
@@ -295,7 +297,7 @@ $app->get('/', function (Request $request, Response $response) {
     $me = $this->get('helper')->get_session_user();
 
     $db = $this->get('db');
-    $ps = $db->prepare('SELECT `id`, `user_id`, `body`, `mime`, `created_at` FROM `posts` ORDER BY `created_at` DESC');
+    $ps = $db->prepare('SELECT `id`, `user_id`, `body`, `mime`, `created_at` FROM `posts` ORDER BY `created_at` DESC limit 23');
     $ps->execute();
     $results = $ps->fetchAll(PDO::FETCH_ASSOC);
     $posts = $this->get('helper')->make_posts($results);
@@ -311,7 +313,7 @@ $app->get('/posts', function (Request $request, Response $response) {
     $params = $request->getQueryParams();
     $max_created_at = $params['max_created_at'] ?? null;
     $db = $this->get('db');
-    $ps = $db->prepare('SELECT `id`, `user_id`, `body`, `mime`, `created_at` FROM `posts` WHERE `created_at` <= ? ORDER BY `created_at` DESC');
+    $ps = $db->prepare('SELECT `id`, `user_id`, `body`, `mime`, `created_at` FROM `posts` WHERE `created_at` <= ? ORDER BY `created_at` DESC limit 23');
     $ps->execute([$max_created_at === null ? null : $max_created_at]);
     $results = $ps->fetchAll(PDO::FETCH_ASSOC);
     $posts = $this->get('helper')->make_posts($results);
@@ -386,7 +388,6 @@ $app->post('/', function (Request $request, Response $response) {
         return redirect($response, '/', 302);
     }
 });
-
 $app->get('/image/{id}.{ext}', function (Request $request, Response $response, $args) {
     if ($args['id'] == 0) {
         return $response;
@@ -398,6 +399,10 @@ $app->get('/image/{id}.{ext}', function (Request $request, Response $response, $
         ($args['ext'] == 'png' && $post['mime'] == 'image/png') ||
         ($args['ext'] == 'gif' && $post['mime'] == 'image/gif')) {
         $response->getBody()->write($post['imgdata']);
+        $img_path = '/app/image/' . $args['id'] . '.' . $args['ext'];
+        if (!file_exists($img_path)) {
+            file_put_contents($img_path, $post['imgdata']);
+        }
         return $response->withHeader('Content-Type', $post['mime']);
     }
     $response->getBody()->write('404');

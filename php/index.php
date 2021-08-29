@@ -512,7 +512,8 @@ $app->get('/@{account_name}', function (Request $request, Response $response, $a
     $commented_count = 0;
     if ($post_count > 0) {
         $placeholder = implode(',', array_fill(0, count($post_ids), '?'));
-        $commented_count = $this->get('helper')->fetch_first("SELECT COUNT(*) AS count FROM `comments` WHERE `post_id` IN ({$placeholder})", ...$post_ids)['count'];
+        $commented_count = 0;
+        //$commented_count = $this->get('helper')->fetch_first("SELECT COUNT(*) AS count FROM `comments` WHERE `post_id` IN ({$placeholder})", ...$post_ids)['count'];
     }
 
     $me = $this->get('helper')->get_session_user();

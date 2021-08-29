@@ -94,6 +94,7 @@ $container->set('helper', function ($c) {
                 $db->query($s);
             }
 	        $db->query('update comments set comments.account_name = users.account_name from comments inner join users on comments.user_id = users.id');
+            $db->query('update posts set posts.del_flg = users.del_flg from posts inner join users on posts.user_id = users.id');
         }
         public function fetch_first($query, ...$params) {
             $db = $this->db();
@@ -143,7 +144,6 @@ $container->set('helper', function ($c) {
                 $comments = $ps->fetchAll(PDO::FETCH_ASSOC);
                 foreach ($comments as &$comment) {
                     $comment['user']['account_name'] = $comment['account_name'];
-                    //$comment['user'] = $this->fetch_first('SELECT account_name FROM `users` WHERE `id` = ?', $comment['user_id']);
                 }
                 unset($comment);
                 $post['comments'] = array_reverse($comments);

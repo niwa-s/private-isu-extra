@@ -93,7 +93,7 @@ $container->set('helper', function ($c) {
             foreach($sql as $s) {
                 $db->query($s);
             }
-	        $db->query('update comments set comments.account_name = users.account_name from comments inner join users on comments.user_id = users.id');
+            $db->query('update comments set comments.account_name = users.account_name from comments inner join users on comments.user_id = users.id');
             $db->query('update posts set posts.del_flg = users.del_flg from posts inner join users on posts.user_id = users.id');
         }
         public function fetch_first($query, ...$params) {

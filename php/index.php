@@ -36,8 +36,6 @@ ini_set('session.save_path', $memd_addr);
 
 session_start();
 
-$memcached = new Memcached();
-$memcached->addServer('localhost', 11211);
 
 // dependency
 $container = new Container();
@@ -96,12 +94,16 @@ $container->set('helper', function ($c) {
             foreach($sql as $s) {
                 $db->query($s);
             }
-	        $db->query('update comments set comments.account_name = users.account_name from comments inner join users on comments.user_id = users.id');
-            $ps = $db->prepare('select post_id, count(*) as count from comments group by post_id')->execute();
-            $post_counts = $ps->fetchAll(PDO::FETCH_ASSOC);
-            foreach ($post_counts as &$post_count) {
-                $memcached->set($post_count['post_id'], $post_count['count'], 100);
-            }
+	    $memcached = new Memcached();
+	    $memcached->addServer('localhost', 11211);
+	    $db->query('UPDATE comments SET comments.account_name = users.account_name FROM comments INNER JOIN users ON comments.user_id = users.id');
+	    $ps = $db->prepare('select post_id, count(*) as count from comments group by post_id');
+	    $ps->execute();
+            $posts = $ps->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($posts as $post) {
+		$memcached->set('apple', 0);
+		$memcached->increment($post_id);
+	    }
         }
         public function fetch_first($query, ...$params) {
             $db = $this->db();
@@ -139,6 +141,8 @@ $container->set('helper', function ($c) {
             $all_comments = $options['all_comments'];
 
             $posts = [];
+	    $memcached = new Memcached();
+	    $memcached->addServer('localhost', 11211);
             foreach ($results as $post) {
                 $post['comment_count'] = $memcached->get($post['id']);
                 //$post['comment_count'] = $this->fetch_first('SELECT COUNT(*) AS `count` FROM `comments` WHERE `post_id` = ?', $post['id'])['count'];
@@ -445,6 +449,8 @@ $app->post('/comment', function (Request $request, Response $response) {
         $me['id'],
         $params['comment']
     ]);
+    $memcached = new Memcached();
+    $memcached->addServer('localhost', 11211);
     $memcached->set($post_id, $memcached->get($post_id) + 1, 100);
 
     return redirect($response, "/posts/{$post_id}", 302);

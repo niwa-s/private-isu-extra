@@ -36,6 +36,7 @@ ini_set('session.save_path', $memd_addr);
 
 session_start();
 
+
 // dependency
 $container = new Container();
 $container->set('settings', function() {
@@ -133,7 +134,7 @@ $container->set('helper', function ($c) {
 
             $posts = [];
             foreach ($results as $post) {
-                $post['comment_count'] = $this->fetch_first('SELECT COUNT(*) AS `count` FROM `comments` WHERE `post_id` = ?', $post['id'])['count'];
+                $post['comment_count'] = 0;
                 $query = 'SELECT * FROM `comments` WHERE `post_id` = ? ORDER BY `created_at` DESC';
                 if (!$all_comments) {
                     $query .= ' LIMIT 3';
@@ -502,7 +503,7 @@ $app->get('/@{account_name}', function (Request $request, Response $response, $a
     $results = $ps->fetchAll(PDO::FETCH_ASSOC);
     $posts = $this->get('helper')->make_posts($results);
 
-    $comment_count = $this->get('helper')->fetch_first('SELECT COUNT(*) AS count FROM `comments` WHERE `user_id` = ?', $user['id'])['count'];
+    $comment_count = 0;
 
     $ps = $db->prepare('SELECT `id` FROM `posts` WHERE `user_id` = ?');
     $ps->execute([$user['id']]);
@@ -512,7 +513,8 @@ $app->get('/@{account_name}', function (Request $request, Response $response, $a
     $commented_count = 0;
     if ($post_count > 0) {
         $placeholder = implode(',', array_fill(0, count($post_ids), '?'));
-        $commented_count = $this->get('helper')->fetch_first("SELECT COUNT(*) AS count FROM `comments` WHERE `post_id` IN ({$placeholder})", ...$post_ids)['count'];
+        $commented_count = 0;
+        //$commented_count = $this->get('helper')->fetch_first("SELECT COUNT(*) AS count FROM `comments` WHERE `post_id` IN ({$placeholder})", ...$post_ids)['count'];
     }
 
     $me = $this->get('helper')->get_session_user();

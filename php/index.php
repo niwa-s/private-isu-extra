@@ -94,16 +94,6 @@ $container->set('helper', function ($c) {
             foreach($sql as $s) {
                 $db->query($s);
             }
-	    $memcached = new Memcached();
-	    $memcached->addServer('localhost', 11211);
-	    $db->query('UPDATE comments SET comments.account_name = users.account_name FROM comments INNER JOIN users ON comments.user_id = users.id');
-	    $ps = $db->prepare('select post_id, count(*) as count from comments group by post_id');
-	    $ps->execute();
-            $posts = $ps->fetchAll(PDO::FETCH_ASSOC);
-            foreach ($posts as $post) {
-		$memcached->set('apple', 0);
-		$memcached->increment($post_id);
-	    }
         }
         public function fetch_first($query, ...$params) {
             $db = $this->db();
@@ -141,11 +131,8 @@ $container->set('helper', function ($c) {
             $all_comments = $options['all_comments'];
 
             $posts = [];
-	    $memcached = new Memcached();
-	    $memcached->addServer('localhost', 11211);
             foreach ($results as $post) {
-                $post['comment_count'] = $memcached->get($post['id']);
-                //$post['comment_count'] = $this->fetch_first('SELECT COUNT(*) AS `count` FROM `comments` WHERE `post_id` = ?', $post['id'])['count'];
+                $post['comment_count'] = 0;
                 $query = 'SELECT * FROM `comments` WHERE `post_id` = ? ORDER BY `created_at` DESC';
                 if (!$all_comments) {
                     $query .= ' LIMIT 3';
@@ -449,9 +436,6 @@ $app->post('/comment', function (Request $request, Response $response) {
         $me['id'],
         $params['comment']
     ]);
-    $memcached = new Memcached();
-    $memcached->addServer('localhost', 11211);
-    $memcached->set($post_id, $memcached->get($post_id) + 1, 100);
 
     return redirect($response, "/posts/{$post_id}", 302);
 });
@@ -518,7 +502,7 @@ $app->get('/@{account_name}', function (Request $request, Response $response, $a
     $results = $ps->fetchAll(PDO::FETCH_ASSOC);
     $posts = $this->get('helper')->make_posts($results);
 
-    $comment_count = $this->get('helper')->fetch_first('SELECT COUNT(*) AS count FROM `comments` WHERE `user_id` = ?', $user['id'])['count'];
+    $comment_count = 0;
 
     $ps = $db->prepare('SELECT `id` FROM `posts` WHERE `user_id` = ?');
     $ps->execute([$user['id']]);
